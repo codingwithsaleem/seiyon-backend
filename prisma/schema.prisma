@@ -1,0 +1,551 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator docs {
+  provider = "node node_modules/prisma-docs-generator"
+  output   = "../docs/database"
+}
+
+// ===================================
+// ENUMS
+// ===================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+  PENDING_VERIFICATION
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  USER
+  GUEST
+}
+
+enum SessionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  TWO_FACTOR_AUTH
+  PHONE_VERIFICATION
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+  LIKE // Phase 2
+  COMMENT // Phase 2
+  SHARE // Phase 2
+  POST_APPROVED // Phase 2
+  POST_REJECTED // Phase 2
+  REPORT_RESOLVED // Phase 2
+  SYSTEM_ALERT // Admin system notifications
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// ===================================
+// Travel Utility PLATFORM ENUMS (Phase 1)
+// ===================================
+
+enum PostType {
+  ANNOUNCEMENT
+  NEWS
+  EVENT
+  ALERT
+  UPDATE
+  DISCUSSION
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING // Phase 2: Awaiting approval
+  APPROVED // Phase 2: Approved by moderator/admin
+  REJECTED // Phase 2: Rejected by moderator/admin
+  SCHEDULED
+  PUBLISHED
+  UNPUBLISHED
+  ARCHIVED
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS_ONLY
+  COUNTY_ONLY // Phase 2: Only users in the same county
+  PRIVATE
+}
+
+enum AuthorType {
+  ADMIN
+  USER
+  SYSTEM
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+// ===================================
+// PHASE 2 ENUMS
+// ===================================
+
+enum CommentStatus {
+  ACTIVE
+  DELETED
+  HIDDEN
+}
+
+enum ShareType {
+  IN_APP
+  EXTERNAL
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportedContentType {
+  POST
+  COMMENT
+  USER
+}
+
+enum FeedbackType {
+  BUG
+  FEATURE
+  GENERAL
+  COMPLAINT
+}
+
+// ===================================
+// CORE MODELS
+// ===================================
+
+// table for users
+model User {
+  // Primary Key
+  id String @id @default(uuid())
+
+  // Authentication fields
+  email           String    @unique
+  emailVerified   Boolean   @default(false)
+  password        String
+  passwordResetAt DateTime?
+
+  // Profile information
+  firstName     String?
+  lastName      String?
+  fullName      String?
+  username      String?   @unique
+  avatar        String? // URL to profile picture
+  bio           String?   @db.Text
+  phone         String?   @unique
+  phoneVerified Boolean   @default(false)
+  age           Int? // User's age
+  gender        Gender? // User's gender
+  dateOfBirth   DateTime? // Date of birth (alternative to age)
+
+  // SSO fields
+  provider   String? // e.g., 'google', 'linkedin', 'apple'
+  providerId String? @unique // Unique SSO provider user id
+
+  // Address information
+  address    String?
+  city       String?
+  state      String?
+  country    String?
+  postalCode String?
+  timezone   String? @default("UTC")
+
+  // App-specific fields
+  language          String @default("en") // User's preferred language (en, es, fr, etc.)
+  preferredCurrency String @default("USD") // User's preferred currency (USD, EUR, GBP, etc.)
+
+  // Push Notification fields
+  fcmTokens            String[] @default([]) // Array of FCM device tokens (supports multiple devices)
+  notificationsEnabled Boolean  @default(true) // Master switch for all notifications
+  pushEnabled          Boolean  @default(true) // Push notifications enabled
+  emailNotifEnabled    Boolean  @default(true) // Email notifications enabled
+  smsNotifEnabled      Boolean  @default(false) // SMS notifications enabled
+
+  // System fields
+  status             UserStatus @default(INACTIVE)
+  role               UserRole   @default(USER)
+  isEmailVerified    Boolean    @default(false)
+  isTwoFactorEnabled Boolean    @default(false)
+
+  // Phase 2: Moderation fields
+  isModerator Boolean   @default(false) // Is user a moderator
+  bannedAt    DateTime? // When user was banned
+  bannedBy    String? // User ID of who banned
+  banReason   String?   @db.Text // Reason for ban
+
+  // Metadata
+  metadata    Json? // Flexible field for additional data
+  preferences Json? // User preferences
+  settings    Json? // User settings
+
+  // Activity tracking
+  lastLoginAt  DateTime?
+  lastActiveAt DateTime?
+  loginCount   Int       @default(0)
+
+  // Audit fields (Common pattern for all models)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false) // Soft delete
+  deletedAt DateTime?
+  deletedBy String?
+
+  // Relations
+  sessions                Session[]
+  otpVerifications        OtpVerification[]
+  auditLogs               AuditLog[]              @relation("UserAuditLogs")
+  supportTickets          SupportTicket[]         @relation("UserTickets")
+  assignedTickets         SupportTicket[]         @relation("AssignedTickets")
+
+
+  // Indexes
+  @@index([email])
+  @@index([username])
+  @@index([phone])
+  @@index([status])
+  @@index([role])
+  @@index([createdAt])
+  @@index([lastLoginAt])
+  @@index([isDeleted])
+  @@map("users")
+}
+
+// table for user sessions
+model Session {
+  // Primary Key
+  id String @id @default(uuid())
+
+  // Session identification
+  token        String  @unique
+  refreshToken String? @unique
+  sessionId    String? @unique // Additional session identifier
+
+  // User relationship
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Session metadata
+  deviceInfo String? // Information about the device
+  ipAddress  String? // IP address
+  userAgent  String? // User agent string
+  location   String? // Geographic location
+  platform   String? // Platform (web, mobile, desktop)
+
+  // Status and lifecycle
+  status        SessionStatus @default(ACTIVE)
+  isActive      Boolean       @default(true)
+  lastUsedAt    DateTime      @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String?
+
+  // Security
+  fingerprint String? // Browser/device fingerprint
+
+  // Audit fields (Common pattern for all models)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false) // Soft delete
+  deletedAt DateTime?
+  deletedBy String?
+
+  // Indexes
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([isDeleted])
+  @@map("sessions")
+}
+
+model OtpVerification {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  otp            String
+  type           OtpType
+  expiresAt      DateTime
+  verified       Boolean   @default(false)
+  attemptCount   Int       @default(0)
+  otpCooldown    DateTime? // When the user can request a new OTP
+  otpLockedUntil DateTime? // If locked out, when they can try again
+  userId         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, type]) // Index for faster lookups
+  @@index([userId]) // Index for faster lookups by user
+  @@map("otp_verifications")
+}
+
+// ===================================
+// AUDIT & LOGGING MODELS
+// ===================================
+
+model AuditLog {
+  // Primary Key
+  id String @id @default(uuid())
+
+  // Actor information
+  userId    String?
+  user      User?   @relation("UserAuditLogs", fields: [userId], references: [id])
+  actorType String? // USER, SYSTEM, API, etc.
+  actorId   String? // ID of the actor (user, system, etc.)
+
+  // Action details
+  action      AuditAction
+  resource    String // Table/resource name
+  resourceId  String? // ID of the affected resource
+  description String? // Human-readable description
+
+  // Change tracking
+  oldValues Json? // Previous values
+  newValues Json? // New values
+  changes   Json? // Specific changes made
+
+  // Context
+  metadata Json? // Additional context
+  tags     String[] @default([]) // Categorization tags
+
+  // Request information
+  ipAddress String?
+  userAgent String?
+  requestId String? // For tracing requests
+  sessionId String?
+
+  // Result
+  success      Boolean @default(true)
+  errorMessage String?
+
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  version   Int      @default(1)
+
+  // Indexes
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([createdAt])
+  @@index([success])
+  @@map("audit_logs")
+}
+
+
+// ===================================
+// FILE MANAGEMENT MODELS
+// ===================================
+
+model File {
+  // Primary Key
+  id String @id @default(uuid())
+
+  // File identification
+  originalName String
+  filename     String  @unique
+  path         String
+  url          String?
+
+  // File properties
+  mimeType  String
+  size      Int
+  extension String?
+
+  // Metadata
+  metadata    Json?
+  description String?
+  tags        String[] @default([])
+
+  // Ownership and access
+  uploadedBy String?
+  isPublic   Boolean @default(false)
+
+  // Storage information
+  storageType String  @default("s3") // local, s3, cloudinary, etc.
+  bucketName  String?
+
+  // Processing status
+  isProcessed      Boolean @default(true)
+  processingStatus String? // pending, processing, completed, failed
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  // Indexes
+  @@index([filename])
+  @@index([uploadedBy])
+  @@index([mimeType])
+  @@index([isPublic])
+  @@index([storageType])
+  @@index([createdAt])
+  @@index([isDeleted])
+  @@map("files")
+}
+
+// ===================================
+// SUPPORT TICKET MODELS
+// ===================================
+
+// Support tickets for admin panel
+model SupportTicket {
+  // Primary Key
+  id String @id @default(uuid())
+
+  // User who created the ticket
+  userId String
+  user   User   @relation("UserTickets", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Ticket details
+  subject     String
+  description String  @db.Text
+  category    String? // e.g., "Billing", "OCR Issue", "Account"
+
+  // Status & priority
+  status   TicketStatus   @default(OPEN)
+  priority TicketPriority @default(MEDIUM)
+
+  // Assignment (for admin)
+  assignedToId String?
+  assignedTo   User?     @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?
+
+  // Resolution
+  resolvedAt DateTime?
+  resolution String?   @db.Text
+
+  // Attachments (store file IDs or URLs)
+  attachments Json? // Array of file URLs/IDs
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  // Indexes
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+// ===================================
+// ACCOUNT DELETION FEEDBACK MODEL
+// ===================================
+
+// Track account deletion reasons for analytics
+model AccountDeletion {
+  // Primary Key
+  id String @id @default(uuid())
+
+  // User information (before deletion)
+  userId   String
+  email    String
+  fullName String?
+  userRole String?
+
+  // Deletion reasons
+  reasons String[] // Array of deletion reasons
+
+  // Additional feedback
+  feedback String? @db.Text
+
+  // Metadata
+  deletedBy String // "user" or admin ID
+  userAgent String?
+  ipAddress String?
+
+  // Audit fields
+  createdAt DateTime @default(now())
+
+  // Indexes
+  @@index([userId])
+  @@index([email])
+  @@index([createdAt])
+  @@map("account_deletions")
+}
+

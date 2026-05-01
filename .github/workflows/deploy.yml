@@ -1,0 +1,101 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: saleemrazadev/travel-utility-backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.22.0'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Generate Prisma client
+      run: npx prisma generate
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    - name: Run linting
+      run: npm run lint
+      continue-on-error: true
+
+    - name: Run tests
+      run: npm test
+      continue-on-error: true
+
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build test (syntax check)
+      run: |
+        docker build \
+          --build-arg DATABASE_URL="postgresql://test:test@localhost:5432/testdb" \
+          -t test-build .
+        echo "Build successful - will build on server during deployment"
+
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    
+    steps:
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: 22
+        script: |
+          cd /opt/travel-utility-backend
+
+          echo "Pulling latest code..."
+          git pull origin main
+
+          echo "Checking .env file..."
+          if [ ! -f .env ]; then
+            echo "ERROR: .env file not found!"
+            exit 1
+          fi
+
+          echo "Stopping containers..."
+          docker compose down
+
+          echo "Building new image..."
+          docker build -t travel-utility-backend:latest .
+
+          echo "Starting containers..."
+          docker compose up -d
+
+          echo "Cleaning old images..."
+          docker image prune -f
+
+          echo "Checking health..."
+          sleep 25
+          curl -f http://localhost:6001/health || exit 1
+
+          echo "Deployment successful!"

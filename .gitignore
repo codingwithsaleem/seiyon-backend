@@ -1,0 +1,43 @@
+node_modules/
+dist/
+.env*
+
+
+
+# ignore the documentation directory
+documentation/
+docs/
+
+
+
+
+
+# prisma migration files
+prisma/migrations/*
+
+# Ignore the .env file
+# .env
+
+# logs 
+logs/
+logs/app.log
+logs/error.log
+
+# SSL certificates - never commit these!
+ssl/
+ssl/
+*.pem
+*.key
+*.crt
+/src/generated/prisma
+
+#igonre scripts
+scripts/
+
+
+#igonre env production files
+env.production
+
+#ignore firebase admin sdk
+firebase-service-account.json
+google-cloud-credentials.json
