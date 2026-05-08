@@ -33,7 +33,7 @@ enum UserStatus {
 enum UserRole {
   SUPER_ADMIN
   ADMIN
-  MODERATOR
+  VENDOR
   USER
   GUEST
 }
@@ -56,20 +56,7 @@ enum NotificationType {
   SMS
   PUSH
   IN_APP
-  LIKE // Phase 2
-  COMMENT // Phase 2
-  SHARE // Phase 2
-  POST_APPROVED // Phase 2
-  POST_REJECTED // Phase 2
-  REPORT_RESOLVED // Phase 2
   SYSTEM_ALERT // Admin system notifications
-}
-
-enum InvitationStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
-  REVOKED
 }
 
 enum AuditAction {
@@ -98,40 +85,109 @@ enum TicketPriority {
 }
 
 // ===================================
-// Travel Utility PLATFORM ENUMS (Phase 1)
+// Seiyon Car Rental PLATFORM ENUMS (Phase 1)
 // ===================================
 
-enum PostType {
-  ANNOUNCEMENT
-  NEWS
-  EVENT
-  ALERT
-  UPDATE
-  DISCUSSION
+// VENDOR ENUMS
+enum VendorStatus {
+  PENDING      // Just registered, awaiting admin review
+  VERIFIED     // Admin approved
+  SUSPENDED    // Temporarily disabled
+  REJECTED     // Admin rejected
 }
 
-enum PostStatus {
-  DRAFT
-  PENDING // Phase 2: Awaiting approval
-  APPROVED // Phase 2: Approved by moderator/admin
-  REJECTED // Phase 2: Rejected by moderator/admin
-  SCHEDULED
-  PUBLISHED
-  UNPUBLISHED
+// VEHICLE ENUMS
+enum VehicleStatus {
+  DRAFT           // Vendor saved but not submitted
+  PENDING_REVIEW  // Submitted, waiting admin review
+  APPROVED        // Approved and live on platform
+  REJECTED        // Admin rejected (vendor can fix and resubmit)
+  UNLISTED        // Vendor requested unlist and admin approved
+  SUSPENDED       // Admin suspended the listing
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  CNG
+}
+
+enum TransmissionType {
+  AUTOMATIC
+  MANUAL
+}
+
+enum VehicleCategory {
+  SEDAN
+  SUV
+  HATCHBACK
+  LUXURY
+  SPORTS
+  OFF_ROAD
+  VAN
+  TRUCK
+  CONVERTIBLE
+}
+
+enum DocumentType {
+  REGISTRATION
+  OWNERSHIP_PROOF
+  INSPECTION_CERTIFICATE
+  INSURANCE_POLICY
+  OTHER
+}
+
+enum UnlistRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// BOOKING ENUMS
+enum BookingStatus {
+  PENDING      // Created but payment not done
+  CONFIRMED    // Payment successful
+  ACTIVE       // Rental in progress
+  COMPLETED    // Rental ended
+  CANCELLED    // Cancelled by customer or vendor
+  NO_SHOW      // Customer didn't show up
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum BookingType {
+  DAILY
+  MONTHLY_SUBSCRIPTION
+}
+
+// SUBSCRIPTION ENUMS
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  SUSPENDED
+}
+
+enum SubscriptionInterval {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// NOTIFICATION ENUMS
+enum NotificationStatus {
+  UNREAD
+  READ
   ARCHIVED
-}
-
-enum PostVisibility {
-  PUBLIC
-  FOLLOWERS_ONLY
-  COUNTY_ONLY // Phase 2: Only users in the same county
-  PRIVATE
-}
-
-enum AuthorType {
-  ADMIN
-  USER
-  SYSTEM
 }
 
 enum MediaType {
@@ -240,12 +296,6 @@ model User {
   isEmailVerified    Boolean    @default(false)
   isTwoFactorEnabled Boolean    @default(false)
 
-  // Phase 2: Moderation fields
-  isModerator Boolean   @default(false) // Is user a moderator
-  bannedAt    DateTime? // When user was banned
-  bannedBy    String? // User ID of who banned
-  banReason   String?   @db.Text // Reason for ban
-
   // Metadata
   metadata    Json? // Flexible field for additional data
   preferences Json? // User preferences
@@ -269,6 +319,11 @@ model User {
   auditLogs               AuditLog[]              @relation("UserAuditLogs")
   supportTickets          SupportTicket[]         @relation("UserTickets")
   assignedTickets         SupportTicket[]         @relation("AssignedTickets")
+  vendorProfile           VendorProfile?
+  bookings                Booking[]               @relation("CustomerBookings")
+  notifications           Notification[]
+  reviews                 Review[]
+  subscriptions           UserSubscription[]
 
 
   // Indexes
@@ -547,5 +602,524 @@ model AccountDeletion {
   @@index([email])
   @@index([createdAt])
   @@map("account_deletions")
+}
+
+// ===================================
+// CAR RENTAL MODELS
+// ===================================
+
+// Vendor profile — linked to User with role = VENDOR
+model VendorProfile {
+  id String @id @default(uuid())
+
+  // Link to User
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Business information
+  businessName    String
+  tradeLicense    String?  @unique
+  businessAddress String?
+  city            String?
+  state           String?
+  country         String?
+
+  // Banking details (for payouts)
+  bankName      String?
+  accountNumber String?
+  iban          String?
+  swiftCode     String?
+
+  // Verification
+  status          VendorStatus @default(PENDING)
+  isVerified      Boolean      @default(false)
+  verifiedAt      DateTime?
+  verifiedBy      String?      // Admin userId who verified
+  rejectionReason String?
+
+  // Stats (denormalized for quick reads)
+  rating        Float?   // Average rating from reviews
+  totalEarnings Decimal? @db.Decimal(10, 2)
+  totalBookings Int      @default(0)
+
+  // Flexible metadata
+  metadata Json?
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  // Relations
+  vehicles       Vehicle[]
+  unlistRequests UnlistRequest[]
+
+  // Indexes
+  @@index([userId])
+  @@index([status])
+  @@index([isVerified])
+  @@index([createdAt])
+  @@index([isDeleted])
+  @@map("vendor_profiles")
+}
+
+// Main vehicle listing
+model Vehicle {
+  id String @id @default(uuid())
+
+  // Ownership
+  vendorId String
+  vendor   VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  // Basic information
+  brand        String
+  model        String
+  year         Int
+  color        String?
+  licensePlate String?   @unique
+  vin          String?   @unique // Vehicle Identification Number
+  description  String?   @db.Text
+
+  // Specifications
+  category     VehicleCategory
+  fuelType     FuelType
+  transmission TransmissionType
+  seats        Int
+  mileage      Int?     // Current odometer reading (km)
+
+  // Pricing
+  dailyRate       Decimal @db.Decimal(10, 2)
+  monthlyRate     Decimal? @db.Decimal(10, 2)
+  minRentalDays   Int     @default(1)
+  securityDeposit Decimal? @db.Decimal(10, 2)
+
+  // Location
+  pickupLocation String?
+  city           String?
+  state          String?
+  country        String?
+  latitude       Float?
+  longitude      Float?
+
+  // Features and tags
+  features String[] @default([]) // e.g. ["GPS", "Bluetooth", "Sunroof"]
+  tags     String[] @default([]) // e.g. ["luxury", "family", "sports"]
+
+  // Insurance
+  insuranceType   String?   // "own" or "platform"
+  insuranceExpiry DateTime?
+
+  // Admin review
+  status          VehicleStatus @default(DRAFT)
+  rejectionReason String?
+  reviewedBy      String?   // Admin userId
+  reviewedAt      DateTime?
+  publishedAt     DateTime? // When it went live
+
+  // Stats (denormalized)
+  rating        Float?
+  totalBookings Int    @default(0)
+
+  // Flexible metadata
+  metadata Json?
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  // Relations
+  images         VehicleImage[]
+  documents      VehicleDocument[]
+  bookings       Booking[]
+  reviews        Review[]
+  unlistRequests UnlistRequest[]
+  subscriptions  UserSubscription[]
+
+  // Indexes
+  @@index([vendorId])
+  @@index([status])
+  @@index([category])
+  @@index([fuelType])
+  @@index([city])
+  @@index([dailyRate])
+  @@index([createdAt])
+  @@index([publishedAt])
+  @@index([isDeleted])
+  @@map("vehicles")
+}
+
+// Vehicle photos (multiple per vehicle)
+model VehicleImage {
+  id String @id @default(uuid())
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  url       String
+  type      String?  // "front" | "rear" | "interior" | "side" | "other"
+  isPrimary Boolean  @default(false)
+  order     Int      @default(0)
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  // Indexes
+  @@index([vehicleId])
+  @@index([isPrimary])
+  @@index([isDeleted])
+  @@map("vehicle_images")
+}
+
+// Vehicle documents (registration, insurance, etc.)
+model VehicleDocument {
+  id String @id @default(uuid())
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  type     DocumentType
+  url      String
+  filename String?
+  fileSize Int?
+
+  expiresAt  DateTime?
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+  verifiedBy String?
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  // Indexes
+  @@index([vehicleId])
+  @@index([type])
+  @@index([isDeleted])
+  @@map("vehicle_documents")
+}
+
+// Vendor requests to unlist a vehicle
+model UnlistRequest {
+  id String @id @default(uuid())
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  vendorId String
+  vendor   VendorProfile @relation(fields: [vendorId], references: [id])
+
+  reason        String    @db.Text
+  requestedDate DateTime  // Vendor-requested removal date (min 7 days from submission)
+
+  status     UnlistRequestStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  adminNote  String?
+
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes
+  @@index([vehicleId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("unlist_requests")
+}
+
+// Booking created when customer rents a vehicle
+model Booking {
+  id            String @id @default(uuid())
+  bookingNumber String @unique // Auto-generated: BKG-YYYYMMDD-XXXX
+
+  // Parties involved
+  customerId String
+  customer   User   @relation("CustomerBookings", fields: [customerId], references: [id])
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
+  vendorId String // Denormalized for quick queries (vendor of the vehicle at time of booking)
+
+  // Booking type
+  type BookingType @default(DAILY)
+
+  // Dates
+  pickupDate       DateTime
+  returnDate       DateTime
+  actualReturnDate DateTime? // Filled when vehicle is actually returned
+
+  // Locations
+  pickupLocation String
+  returnLocation String
+
+  // Pricing snapshot (locked at time of booking)
+  dailyRate       Decimal @db.Decimal(10, 2)
+  totalDays       Int
+  subtotal        Decimal @db.Decimal(10, 2)
+  tax             Decimal @db.Decimal(10, 2) @default(0)
+  discount        Decimal @db.Decimal(10, 2) @default(0)
+  totalAmount     Decimal @db.Decimal(10, 2)
+  securityDeposit Decimal @db.Decimal(10, 2) @default(0)
+  currency        String  @default("USD")
+
+  // Status
+  status        BookingStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  // Customer snapshot (in case user data changes)
+  customerName    String?
+  customerEmail   String?
+  customerPhone   String?
+  customerAddress Json?   // { address, city, state, postalCode, landmark }
+
+  // Additional info
+  specialRequests    String?   @db.Text
+  cancellationReason String?
+  cancelledAt        DateTime?
+  cancelledBy        String?   // userId who cancelled
+
+  // Flexible metadata
+  metadata Json?
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  // Relations
+  payment Payment?
+  review  Review?
+
+  // Indexes
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([pickupDate])
+  @@index([returnDate])
+  @@index([createdAt])
+  @@index([isDeleted])
+  @@map("bookings")
+}
+
+// Stripe payment record linked to a booking
+model Payment {
+  id        String @id @default(uuid())
+  bookingId String @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // Stripe identifiers
+  stripePaymentIntentId String?  @unique
+  stripeChargeId        String?
+  stripeRefundId        String?
+  stripeCustomerId      String?
+
+  // Payment details
+  amount        Decimal @db.Decimal(10, 2)
+  currency      String  @default("USD")
+  status        PaymentStatus
+  method        String? // "card", "bank_transfer"
+
+  // Card info (display only — Stripe stores actual data)
+  last4     String?
+  cardBrand String? // "visa", "mastercard", etc.
+
+  // Timestamps
+  paidAt       DateTime?
+  refundedAt   DateTime?
+  refundAmount Decimal?  @db.Decimal(10, 2)
+  refundReason String?
+
+  // Flexible metadata
+  metadata Json?
+
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes
+  @@index([bookingId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+// Customer review after completed booking
+model Review {
+  id        String  @id @default(uuid())
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id])
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
+  reviewerId String
+  reviewer   User   @relation(fields: [reviewerId], references: [id])
+
+  // Rating (1–5)
+  rating  Int
+  comment String? @db.Text
+
+  // Moderation
+  isVisible  Boolean   @default(true)
+  hiddenAt   DateTime?
+  hiddenBy   String?
+  hideReason String?
+
+  // Vendor response
+  vendorReply String?   @db.Text
+  repliedAt   DateTime?
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  // Indexes
+  @@index([vehicleId])
+  @@index([reviewerId])
+  @@index([bookingId])
+  @@index([rating])
+  @@index([isVisible])
+  @@index([isDeleted])
+  @@map("reviews")
+}
+
+// Subscription plan definitions (managed by Admin)
+model SubscriptionPlan {
+  id          String @id @default(uuid())
+
+  name        String
+  description String? @db.Text
+  price       Decimal @db.Decimal(10, 2)
+  interval    SubscriptionInterval
+
+  // What's included
+  features   String[] @default([])
+  maxMileage Int?     // km included per period
+  isActive   Boolean  @default(true)
+
+  // Stripe Price ID for recurring billing
+  stripePriceId String? @unique
+
+  // Flexible metadata
+  metadata Json?
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  // Relations
+  subscriptions UserSubscription[]
+
+  // Indexes
+  @@index([isActive])
+  @@index([interval])
+  @@index([isDeleted])
+  @@map("subscription_plans")
+}
+
+// Customer's active subscription to a plan (optionally tied to a specific vehicle)
+model UserSubscription {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  planId String
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  status SubscriptionStatus @default(PENDING)
+
+  // Billing period
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+
+  // Cancellation
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  // Stripe
+  stripeSubscriptionId String? @unique
+  stripeCustomerId     String?
+
+  // Flexible metadata
+  metadata Json?
+
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes
+  @@index([userId])
+  @@index([vehicleId])
+  @@index([planId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("user_subscriptions")
+}
+
+// In-app notifications for users and vendors
+model Notification {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Content
+  title   String
+  message String @db.Text
+
+  // Classification
+  type     NotificationType   // EMAIL | SMS | PUSH | IN_APP | SYSTEM_ALERT
+  category String?            // "booking" | "vehicle" | "payment" | "system" | "admin"
+
+  // Related resource (deep link support)
+  resourceType String? // "booking" | "vehicle" | "ticket" | etc.
+  resourceId   String?
+  actionUrl    String? // Frontend route to navigate to
+
+  // Status
+  status NotificationStatus @default(UNREAD)
+  readAt DateTime?
+
+  // Flexible metadata
+  metadata Json?
+
+  // Audit fields
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  // Indexes
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([category])
+  @@index([createdAt])
+  @@index([isDeleted])
+  @@map("notifications")
 }
 

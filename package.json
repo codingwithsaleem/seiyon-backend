@@ -1,5 +1,5 @@
 {
-  "name": "travel-utility-mobile-app-backend",
+  "name": "seiyon-mobile-app-backend",
   "version": "1.0.0",
   "description": "Mobile App Backend with TypeScript, Prisma, and modern best practices",
   "main": "dist/src/server.js",

@@ -139,7 +139,7 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
-  customSiteTitle: 'Travel Utility API Documentation',
+  customSiteTitle: 'Seiyon Car Rental API Documentation',
 }));
 app.get('/api-docs.json', (req: Request, res: Response) => {
   res.json(swaggerSpec);

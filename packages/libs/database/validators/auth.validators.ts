@@ -98,22 +98,6 @@ export const resendOtpSchema = z
     message: 'Either email or phoneNumber must be provided',
   });
 
-// SSO Schemas
-
-export const ssoRegisterSchema = z.object({
-  idToken: z.string().min(1, 'ID token is required'),
-  // Optional user info sent by Apple on first auth
-  user: z
-    .object({
-      fullName: z
-        .object({
-          firstName: z.string().optional(),
-          lastName: z.string().optional(),
-        })
-        .optional(),
-    })
-    .optional(),
-});
 
 export const ssoLoginSchema = z.object({
   email: z.string().email(),
@@ -131,5 +115,4 @@ export type VerifyForgotPasswordInput = z.infer<
   typeof verifyForgotPasswordSchema
 >;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
-export type SsoRegisterInput = z.infer<typeof ssoRegisterSchema>;
 export type SsoLoginInput = z.infer<typeof ssoLoginSchema>;

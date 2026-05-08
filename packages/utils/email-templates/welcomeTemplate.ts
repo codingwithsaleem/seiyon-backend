@@ -4,7 +4,7 @@ export const welcomeTemplate = (data: Record<string, any>) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Welcome to Travel Utility</title>
+  <title>Welcome to Seiyon Car Rental</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -63,17 +63,17 @@ export const welcomeTemplate = (data: Record<string, any>) => {
 <body>
 
   <header>
-    <h1>Travel Utility</h1>
+    <h1>Seiyon Car Rental</h1>
   </header>
 
   <main>
     <h2>Welcome Aboard!</h2>
-    <p>We're thrilled to have you here. At Travel Utility, we blend innovation and precision to launch your ideas into the stratosphere. Let’s make something amazing together.</p>
+    <p>We're thrilled to have you here. At Seiyon Car Rental, we blend innovation and precision to launch your ideas into the stratosphere. Let’s make something amazing together.</p>
     <a href="${data.url}" class="button">Get Started</a>
   </main>
 
   <footer>
-    &copy; 2025 Travel Utility. All rights reserved.
+    &copy; 2025 Seiyon Car Rental. All rights reserved.
   </footer>
 
 </body>

@@ -86,7 +86,7 @@ export const sendOtpSMS = async (
   phoneNumber: string,
   otp: string
 ): Promise<{ success: boolean; message: string }> => {
-  const message = `Your Travel Utility verification code is: ${otp}. It is valid for 5 minutes. Do not share this code with anyone.`;
+  const message = `Your Seiyon Car Rental verification code is: ${otp}. It is valid for 5 minutes. Do not share this code with anyone.`;
 
   return sendSMS(phoneNumber, message);
 };
@@ -101,7 +101,7 @@ export const sendForgotPasswordOtpSMS = async (
   phoneNumber: string,
   otp: string
 ): Promise<{ success: boolean; message: string }> => {
-  const message = `Your Travel Utility password reset code is: ${otp}. It is valid for 5 minutes. If you didn't request this, please ignore this message.`;
+  const message = `Your Seiyon Car Rental password reset code is: ${otp}. It is valid for 5 minutes. If you didn't request this, please ignore this message.`;
 
   return sendSMS(phoneNumber, message);
 };

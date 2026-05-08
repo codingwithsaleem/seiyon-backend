@@ -8,9 +8,9 @@ const swaggerOptions: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'travel-utility API',
+      title: 'seiyon API',
       version: '1.0.0',
-      description: 'API documentation for travel-utility',
+      description: 'API documentation for seiyon',
     },
     servers: [
       {

@@ -4,7 +4,7 @@ export const resetPasswordTemplate = (data: any) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Reset Your Password - Travel Utility</title>
+  <title>Reset Your Password - Seiyon Car Rental</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -83,7 +83,7 @@ export const resetPasswordTemplate = (data: any) => {
 
   <div class="container">
     <div class="header">
-      <h1>Travel Utility</h1>
+      <h1>Seiyon Car Rental</h1>
     </div>
     <div class="content">
       <h2>Reset Your Password</h2>
@@ -96,7 +96,7 @@ export const resetPasswordTemplate = (data: any) => {
       </p>
     </div>
     <div class="footer">
-      &copy; 2026 Travel Utility. All rights reserved.
+      &copy; 2026 Seiyon Car Rental. All rights reserved.
     </div>
   </div>
 

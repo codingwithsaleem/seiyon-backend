@@ -11,7 +11,7 @@ async function main() {
     // =================================
     console.log('👤 Creating admin user...');
 
-    const adminEmail = 'admin@travel-utility.com';
+    const adminEmail = 'admin@seiyon.com';
     const existingAdmin = await prisma.user.findUnique({
       where: { email: adminEmail },
     });

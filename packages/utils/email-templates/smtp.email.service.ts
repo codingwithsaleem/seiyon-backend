@@ -70,7 +70,7 @@ export const sendEmailSMTP = async (
       }
 
       const mailOptions = {
-        from: `" Travel Utility App" <${emailSender}>`,
+        from: `" Seiyon Car Rental App" <${emailSender}>`,
         to: email,
         subject: subject,
         text: text,

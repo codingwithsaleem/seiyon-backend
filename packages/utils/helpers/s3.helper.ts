@@ -18,7 +18,7 @@ const s3Client = new S3Client({
   },
 });
 
-const S3_BUCKET = process.env.AWS_S3_BUCKET || 'travel-utility-storage';
+const S3_BUCKET = process.env.AWS_S3_BUCKET || 'seiyon-storage';
 
 // =================================
 // FILE UPLOAD FUNCTIONS

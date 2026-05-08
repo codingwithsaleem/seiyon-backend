@@ -4,7 +4,7 @@ export const verifyEmailOtpTemplate = (data: Record<string, any>) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Email Verification - Travel Utility</title>
+  <title>Email Verification - Seiyon Car Rental</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -70,16 +70,16 @@ export const verifyEmailOtpTemplate = (data: Record<string, any>) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Travel Utility</h1>
+      <h1>Seiyon Car Rental</h1>
     </div>
     <div class="content">
       <h2>Verify Your Email</h2>
-      <p>Use the one-time code below to verify your email address and start your journey with Travel Utility.</p>
+      <p>Use the one-time code below to verify your email address and start your journey with Seiyon Car Rental.</p>
       <div class="otp-box">${data?.otp}</div>
       <p class="note">This code will expire in 5 minutes. Please do not share it with anyone.</p>
     </div>
     <div class="footer">
-      &copy; 2025 Travel Utility. All rights reserved.
+      &copy; 2025 Seiyon Car Rental. All rights reserved.
     </div>
   </div>
 </body>

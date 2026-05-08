@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: travel-utility-backend:latest
-    container_name: travel-utility-app
+    image: seiyon-backend:latest
+    container_name: seiyon-app
     ports:
       - "6001:6001"
     environment:
@@ -30,7 +30,7 @@ services:
   # Redis disabled - not needed currently
   # redis:
   #   image: redis:7-alpine
-  #   container_name: travel-utility-redis
+  #   container_name: seiyon-redis
   #   ports:
   #     - "6379:6379"
   #   volumes:
@@ -44,7 +44,7 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: travel-utility-nginx
+    container_name: seiyon-nginx
     ports:
       - "80:80"
       - "443:443"
